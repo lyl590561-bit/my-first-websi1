@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>نسمة نت</title>
+<style>
+body{margin:0;font-family:Tahoma,sans-serif;background:#071a2d;color:#fff;text-align:center}
+.container{max-width:700px;margin:20px auto;background:#000;padding:20px;border-radius:16px}
+h1{font-size:50px;color:#ffd600;margin:10px 0}
+h2{font-size:36px;margin-bottom:20px}
+input,select{width:90%;padding:12px;margin:8px 0;font-size:18px;border-radius:10px;border:none}
+button{width:75%;padding:14px;margin:10px 0;font-size:20px;border-radius:12px;border:none;background:#5bbce8;cursor:pointer;transition:.3s}
+button:hover{background:#39a0d0}
+.status{color:#ffd600;font-size:18px}
+.user-box{background:#9e2b2b;border-radius:14px;padding:16px;margin-bottom:12px;font-size:20px;font-weight:bold}
+.user-box.red{background:#ff0000}
+.user-box span{display:block;margin-top:8px;font-size:22px}
+.user-buttons button{width:85%;padding:12px;margin:6px 0;font-size:18px;border-radius:10px}
+.user-card{background:#222;padding:14px;border-radius:12px;margin:10px 0}
+.user-card input, .user-card select{width:90%;padding:6px;margin-top:5px}
+.user-card button{padding:6px 8px;margin-top:5px;border:none;border-radius:6px;cursor:pointer;background:#ffd600;color:#000;font-weight:bold;transition:.2s}
+.user-card button:hover{background:#e6e600}
+.user-status{font-weight:bold;display:inline-block;margin-left:10px}
+</style>
+</head>
+<body>
+
+<!-- تسجيل الدخول -->
+<div class="container" id="login">
+<h1>نسمة نت</h1>
+<h2>NESMAH NET</h2>
+<div id="marquee-container" style="background:#8aff00;padding:10px;margin-bottom:20px;border-radius:8px;">
+<span id="marquee-text">للتواصل معنا 0925971747</span>
+</div>
+<input id="user" placeholder="اسم المستخدم">
+<input id="pass" type="password" placeholder="كلمة المرور">
+<button onclick="login()">دخول</button>
+<div class="status" id="msg"></div>
+</div>
+
+<!-- لوحة التحكم -->
+<div class="container" id="panel" style="display:none"></div>
+
+<!-- صفحة إضافة مستخدم -->
+<div class="container" id="add-user-page" style="display:none">
+<h2>إضافة مستخدم جديد</h2>
+<input id="new-username" placeholder="اسم المستخدم">
+<input id="new-pass" placeholder="كلمة المرور">
+
+<!-- الوقت -->
+<input id="new-time" type="number" placeholder="الوقت" value="60">
+<select id="new-time-unit">
+  <option value="seconds">ثانية</option>
+  <option value="minutes" selected>دقيقة</option>
+  <option value="hours">ساعة</option>
+  <option value="days">يوم</option>
+</select>
+
+<!-- التحميل -->
+<input id="new-kb" type="number" placeholder="التحميل" value="1024">
+<select id="new-kb-unit">
+  <option value="KB" selected>KiB</option>
+  <option value="MB">MiB</option>
+  <option value="GB">GB</option>
+</select>
+
+<button onclick="confirmAddUser()">إضافة</button>
+<button onclick="backToAdmin()">رجوع</button>
+</div>
+
+<script>
+// ===== تهيئة المستخدمين =====
+const DEFAULT_USERS = {
+admin:{pass:"12345",kb:999999,time:999999,upload:0,used:0,online:true,speed:0}
+};
+if(!localStorage.getItem("users")){localStorage.setItem("users",JSON.stringify(DEFAULT_USERS))}
+let users=JSON.parse(localStorage.getItem("users"));
+let current=null;
+
+// ===== تسجيل الدخول =====
+function login(){
+let u=document.getElementById("user").value.trim();
+let p=document.getElementById("pass").value.trim();
+users=JSON.parse(localStorage.getItem("users"));
+if(!users[u]||users[u].pass!==p){document.getElementById("msg").innerText="بيانات غير صحيحة";return;}
+if(u!=="admin"&&(users[u].time<=0||users[u].kb<=0)){document.getElementById("msg").innerText="الكرت منتهي";return;}
+current=u;users[current].online=true;saveUsers();
+document.getElementById("login").style.display="none";
+document.getElementById("panel").style.display="block";
+render();
+}
+
+// ===== الدوال العامة =====
+function saveUsers(){localStorage.setItem("users",JSON.stringify(users))}
+function formatTime(seconds){
+let d=Math.floor(seconds/86400); seconds%=86400;
+let h=Math.floor(seconds/3600); seconds%=3600;
+let m=Math.floor(seconds/60); let s=seconds%60;
+return `${d} يوم , ${h} ساعة , ${m} دقيقة , ${s} ثانية`}
+function formatDataKB(kb){return kb.toLocaleString()+" KiB"}
+function formatDataGB(kb){return (kb/1024/1024).toFixed(2)+" GB"}
+function formatUploadMB(kb){return (kb/1024).toFixed(2)+" MiB"}
+
+// ===== عرض الصفحة =====
+function render(){
+users=JSON.parse(localStorage.getItem("users"));
+if(current==="admin"){
+let html=`<h2>لوحة الأدمن</h2>
+<button onclick="showAddUserPage()">إضافة مستخدم جديد</button>
+<button onclick="showOnlineUsers()">المستخدمون الحاليون</button>
+<button onclick="editMarquee()">تعديل الرقم المتحرك</button><br><br>
+<span>عدد المستخدمين: ${Object.keys(users).length-1}</span><br><br>`;
+for(let k in users){
+if(k==="admin") continue;
+html+=`<div class="user-card">
+<b>${k}</b>
+<span class="user-status" style="color:${users[k].online?'lime':'red'}">${users[k].online?'متصل':'غير متصل'}</span><br>
+الوقت (ثواني)
+<input type="number" value="${users[k].time}" onchange="users['${k}'].time=parseInt(this.value);saveUsers()"><br>
+التحميل (KB)
+<input type="number" value="${users[k].kb}" onchange="users['${k}'].kb=parseInt(this.value);saveUsers()"><br>
+السرعة (MiB/s)
+<input type="number" value="${users[k].speed||0}" onchange="users['${k}'].speed=parseFloat(this.value);saveUsers()"><br>
+كلمة المرور
+<input value="${users[k].pass}" onchange="users['${k}'].pass=this.value;saveUsers()"><br>
+<button onclick="delUser('${k}')">حذف المستخدم</button>
+</div>`;}
+document.getElementById("panel").innerHTML=html+`<br><button onclick="logout()">خروج</button>`;
+}else{
+// المستخدم العادي
+let u=users[current];
+document.getElementById("panel").innerHTML=`
+<div class="user-box red">تنبيه<br>اتق الله في استخدام الإنترنت</div>
+<div class="user-box">وقت الجلسة منذ الدخول<span>${u.used||0} ثانية</span></div>
+<div class="user-box">الرفع المستخدم<span>${formatUploadMB(u.upload||0)}</span></div>
+<div class="user-box">الوقت المتبقي<span>${formatTime(u.time)}</span></div>
+<div class="user-box">التحميل المستخدم<span>${formatDataKB((u.kb_original||u.kb)-u.kb)}</span></div>
+<div class="user-box">التحميل المخصص<span>${formatDataGB(u.kb_original)}</span></div>
+<div class="user-box">سرعة التحميل<span>${u.speed||0} MiB/s</span></div>
+<div class="user-buttons">
+<button onclick="logout()">قطع الاتصال</button>
+<button onclick="logout()">تسجيل بكرت آخر</button>
+</div>`;}
+}
+
+// ===== وظائف الأدمن =====
+function showAddUserPage(){document.getElementById("panel").style.display="none";document.getElementById("add-user-page").style.display="block";}
+function backToAdmin(){document.getElementById("add-user-page").style.display="none";document.getElementById("panel").style.display="block";render();}
+function confirmAddUser(){
+let u=document.getElementById("new-username").value.trim();
+let p=document.getElementById("new-pass").value.trim();
+let t=parseInt(document.getElementById("new-time").value);
+let tUnit=document.getElementById("new-time-unit").value;
+let kb=parseFloat(document.getElementById("new-kb").value);
+let kbUnit=document.getElementById("new-kb-unit").value;
+if(!u||!p){alert("الرجاء إدخال اسم المستخدم وكلمة المرور");return;}
+// تحويل الوقت لوحدات ثواني
+switch(tUnit){case "minutes": t*=60; break; case "hours": t*=3600; break; case "days": t*=86400;}
+switch(kbUnit){case "MB": kb*=1024; break; case "GB": kb*=1024*1024;}
+users[u]={pass:p,time:t,kb:kb,kb_original:kb,upload:0,used:0,online:false,speed:0};
+saveUsers(); backToAdmin();
+}
+function delUser(u){if(confirm(`هل تريد حذف المستخدم ${u}?`)){delete users[u];saveUsers();render();}}
+function editMarquee(){let text=prompt("ادخل نص الرقم المتحرك:",document.getElementById("marquee-text").innerText);if(text) document.getElementById("marquee-text").innerText=text;}
+function showOnlineUsers(){let html=`<h2>المستخدمون الحاليون</h2>`;let count=0;for(let k in users){if(k==="admin") continue;if(users[k].online){count++;html+=`<div class="user-card">${k} - <span style="color:lime">متصل</span></div>`;}}html+=`<br>عدد المتصلين: ${count}<br><button onclick="render()">رجوع</button>`;document.getElementById("panel").innerHTML=html;}
+
+// ===== خروج =====
+function logout(){if(current) users[current].online=false; saveUsers(); location.reload();}
+
+// ===== عداد المستخدم =====
+setInterval(()=>{
+if(!current||current==="admin") return;
+users=JSON.parse(localStorage.getItem("users"));
+let u=users[current];
+u.time--;u.kb--;u.used=(u.used||0)+1;
+u.upload=(u.upload||0)+Math.floor(Math.random()*5+1);
+if(u.time<=0||u.kb<=0){alert("انتهى الكرت");logout();}
+saveUsers(); render();
+},1000);
+</script>
+</body>
+</html>
